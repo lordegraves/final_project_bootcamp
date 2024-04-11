@@ -8,18 +8,24 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 import qdrant_client
 import os
 
+st.set_page_config(page_title=None,
+                   page_icon=None,
+                   layout="centered",
+                   initial_sidebar_state="auto",
+                   menu_items=None)
+
 def get_vector_store():
     
     client = qdrant_client.QdrantClient(
-        os.getenv("QDRANT_HOST"),
-        api_key=os.getenv("QDRANT_API_KEY")
+        st.secrets["QDRANT_HOST"],
+        api_key=st.secrets["QDRANT_API_KEY"]
     )
     
     embeddings = OpenAIEmbeddings()
 
     vector_store = Qdrant(
         client=client, 
-        collection_name=os.getenv("QDRANT_COLLECTION_NAME"), 
+        collection_name=st.secrets["QDRANT_COLLECTION_NAME"], 
         embeddings=embeddings,
     )
     
@@ -33,7 +39,7 @@ def main():
     
     st.title('Chat with Document')
     
-    st.set_page_config(page_title="Ask Qdrant")
+    # st.set_page_config(page_title="Ask Qdrant")
     st.header("Ask your remote database 💬")
     
     # create vector store
