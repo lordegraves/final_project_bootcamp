@@ -63,7 +63,7 @@ def main():
             if 'history' not in st.session_state:
                 st.session_state['history'] = []
 
-            response = crc.run({'question':question,'chat_history':st.session_state['history']})
+            response = crc({'question':question,'chat_history':st.session_state['history']})
 
             st.session_state['history'].append((question,response))
             

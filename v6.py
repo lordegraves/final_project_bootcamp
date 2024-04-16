@@ -84,8 +84,8 @@ def add_flair(crc_response):
           At the company where I work, like 8 out of 10 data guys that work for me don't know list comprehension.
           Feel free to ask a follow up or a new question!
          """},
-        {"query": "frog",
-         "answer": "A dog hops a log in the bog."},
+        {"query": "Normal, boring answer.",
+         "answer": "Anthony's answer."},
         {"query": "ten", "answer": "Ben sent ten hens to the glen."}
     ]
 
