@@ -6,7 +6,6 @@ from langchain_openai import OpenAIEmbeddings
 import qdrant_client
 import os
 from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate
-from sentence_transformers import SentenceTransformer
 
 st.set_page_config(page_title=None, page_icon=None, layout="centered", initial_sidebar_state="auto", menu_items=None)
 
@@ -38,9 +37,16 @@ def find_relevant_document(text_response, vector_store):
     )
 
     if search_result:
-        # Extract the document name from the search result
-        document_name = search_result[0].payload["name"]
-        return document_name
+        # Extract the metadata from the search result
+        metadata = search_result[0].payload.get("metadata", {})
+        
+        # Extract the document name from the metadata
+        document_name = metadata.get("name")
+        
+        if document_name:
+            return document_name
+        else:
+            return "Document name not found in metadata."
     else:
         return None
 
