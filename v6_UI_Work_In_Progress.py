@@ -200,9 +200,8 @@ def main():
 
     if question:
         # Display user's question in chat format
-        with st.echo():
-            with st.chat_message("user"):
-                st.write(question)
+        with st.chat_message("user"):
+            st.write(question)
 
         # Check if 'crc' exists in session state
         if 'crc' in st.session_state:
@@ -219,8 +218,7 @@ def main():
             st.session_state['history'].append((question, crc_response))
 
             # Display AI's response
-            with st.echo():
-                st.write(final_response)
+            st.write(final_response)
 
 if __name__ == '__main__':
     main()
