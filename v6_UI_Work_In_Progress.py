@@ -5,6 +5,8 @@ from langchain_community.vectorstores import Qdrant
 from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate
 from langchain_openai import OpenAIEmbeddings
 import qdrant_client
+import time
+import numpy as np
 
 # Set up Streamlit page configuration
 st.set_page_config(page_title=None,
@@ -122,6 +124,17 @@ def add_flair(crc_response):
 
     return result["text"]
 
+# Define function to load activities, slides, and transcripts
+def load_resources():
+    if 'resources_loaded' not in st.session_state:
+        # Load your activities, slides, and transcripts here
+        # and update session state accordingly
+        st.session_state['resources_loaded'] = True
+        st.session_state['activities'] = "Loaded Activities"
+        st.session_state['slides'] = "Loaded Slides"
+        st.session_state['transcripts'] = "Loaded Transcripts"
+
+
 def find_relevant_document(text_response, vector_store):
     # Use the same OpenAIEmbeddings instance from the vector store
     embeddings = vector_store.embeddings
@@ -179,6 +192,9 @@ def main():
         .user-chat {{
             background-color: #7d9be9;
         }}
+        .assistant-chat {{
+            background-color: #ff9900;
+        }}
     </style>
     """
 
@@ -195,32 +211,37 @@ def main():
     if 'history' not in st.session_state:
         st.session_state['history'] = []
 
-    # Input field for question
-    question = st.text_input('Input your question')
+    # Input field for user's message
+    user_message = st.text_area('You:', key='user_input')
 
-    if question:
-        # Display user's question in chat format
-        with st.echo():
+    # Button to submit user message and add it to chat history
+    if st.button('Submit', key='submit_button'):
+        if user_message:
+            # Display user's message in chat format
             with st.chat_message("user"):
-                st.write(question)
+                st.write(user_message)
 
-        # Check if 'crc' exists in session state
-        if 'crc' in st.session_state:
-            crc = st.session_state.crc
+            # Display a spinner while processing
+            with st.spinner("Processing..."):
+                time.sleep(2)  # Simulate processing time
 
-            # Run CRC on user's question and chat history
-            crc_response = crc.run({'question': question,
-                                    'chat_history': st.session_state['history']})
+                # Check if 'crc' exists in session state
+                if 'crc' in st.session_state:
+                    crc = st.session_state.crc
 
-            # Add flair to response
-            final_response = add_flair(crc_response)
+                    # Run CRC on user's message and chat history
+                    crc_response = crc.run({'question': user_message,
+                                            'chat_history': st.session_state['history']})
 
-            # Append (question,response) pair to history
-            st.session_state['history'].append((question, crc_response))
+                    # Add flair to response
+                    final_response = add_flair(crc_response)
 
-            # Display AI's response
-            with st.echo():
-                st.write(final_response)
+                    # Append (user_message, crc_response) pair to history
+                    st.session_state['history'].append((user_message, crc_response))
+
+                    # Display AI's response
+                    with st.chat_message("assistant"):
+                        st.write(final_response)
 
 if __name__ == '__main__':
     main()
