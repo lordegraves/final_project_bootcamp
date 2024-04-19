@@ -164,84 +164,59 @@ def find_relevant_document(text_response, vector_store):
         return None
 
 def main():
-    # Title and header for Streamlit app
-    st.title('Ask Anthony: Chat with your AI bootcamp!')
-    st.header("Ask about a topic from class 💬👩🏼‍🏫👨🏽‍🏫")
+    st.title('Ask Anthony: Chat with your AI Bootcamp Instructor!')
+    st.header("Ask about any topic from class 💬👨🏽‍🏫👩🏼‍🏫💻🧑🏾‍💻")
 
-    # Define brand colors
-    brand_color = "#72986f"
-    accent_color = "#5b5b5b"
+    # Load resources if not already loaded
+    load_resources()
 
-    # Set custom CSS styles
-    html_string = f"""
-    <style>
-        .stApp {{
-            background-color: {accent_color};
-            color: white;
-        }}
-        .stMarkdown {{
-            color: white;
-        }}
-        .chat-bubble {{
-            background-color: {brand_color};
-            padding: 10px 20px;
-            border-radius: 20px;
-            color: white;
-            margin-bottom: 10px;
-        }}
-        .user-chat {{
-            background-color: #7d9be9;
-        }}
-        .assistant-chat {{
-            background-color: #ff9900;
-        }}
-    </style>
-    """
+    # Retrieve or initialize the Conversational Retrieval Chain (CRC) model
+    if 'crc' not in st.session_state:
+        st.session_state['crc'] = create_crc_llm(get_vector_store())
 
-    # Render the custom CSS styles
-    st.markdown(html_string, unsafe_allow_html=True)
-
-    # Get vector store
-    vector_store = get_vector_store()
-
-    # Create CRC LLM
-    crc = create_crc_llm(vector_store)
-
-    # Check if 'history' exists in session state
+    # Initialize 'history' in session state if it doesn't exist
     if 'history' not in st.session_state:
         st.session_state['history'] = []
 
-    # Input field for user's message
-    user_message = st.text_area('You:', key='user_input')
+    # Display chat history
+    st.subheader("Session History")
+    if st.session_state['history']:
+        for idx, (message, response) in enumerate(reversed(st.session_state['history']), 1):
+            with st.expander(f"Conversation {idx}", expanded=True):
+                st.markdown("**You:**")
+                st.write(message)
+                st.markdown("**Anthony:**")
+                st.write(response)
 
-    # Button to submit user message and add it to chat history
-    if st.button('Submit', key='submit_button'):
-        if user_message:
-            # Display user's message in chat format
-            with st.chat_message("user"):
-                st.write(user_message)
+    # Manage clearing of the input field
+    clear_input = st.session_state.get('clear_input', False)
+    if clear_input:
+        user_message = st.text_input('You:', key='user_input_text', value='', placeholder='Type your message here...')
+        st.session_state.clear_input = False  # Reset the clear input flag
+    else:
+        user_message = st.text_input('You:', key='user_input_text', placeholder='Type your message here...')
+    st.caption("Press Enter to submit your question. Remember to clear the text box for new questions.")
 
-            # Display a spinner while processing
-            with st.spinner("Processing..."):
-                time.sleep(2)  # Simulate processing time
+    # Check if there is a new message
+    if user_message:
+        if 'last_message' not in st.session_state or user_message != st.session_state.last_message:
+            # Process the user's message with a spinner for better UX during loading
+            with st.spinner("Thinking..."):
+                # Generate a response using the CRC model
+                crc_response = st.session_state['crc'].run({'question': user_message, 'chat_history': st.session_state['history']})
+                final_response = add_flair(crc_response)
 
-                # Check if 'crc' exists in session state
-                if 'crc' in st.session_state:
-                    crc = st.session_state.crc
+                # Append the new conversation to the history
+                st.session_state['history'].append((user_message, final_response))
 
-                    # Run CRC on user's message and chat history
-                    crc_response = crc.run({'question': user_message,
-                                            'chat_history': st.session_state['history']})
+                # Save the last processed message to prevent reprocessing on refresh
+                st.session_state.last_message = user_message
 
-                    # Add flair to response
-                    final_response = add_flair(crc_response)
+                # Set flag to clear the input field next run
+                st.session_state.clear_input = True
 
-                    # Append (user_message, crc_response) pair to history
-                    st.session_state['history'].append((user_message, crc_response))
-
-                    # Display AI's response
-                    with st.chat_message("assistant"):
-                        st.write(final_response)
+                # Rerun to reflect changes and clear the input field
+                st.experimental_rerun()
 
 if __name__ == '__main__':
     main()
