@@ -7,6 +7,8 @@ from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate
 from langchain_openai import OpenAIEmbeddings
 import qdrant_client
 import json
+import time
+import numpy as np
 
 # Set up Streamlit page configuration
 st.set_page_config(page_title=None,
@@ -103,6 +105,16 @@ def add_flair(crc_with_source):
 
     return result["text"]
 
+# Define function to load activities, slides, and transcripts
+def load_resources():
+    if 'resources_loaded' not in st.session_state:
+        # Load your activities, slides, and transcripts here
+        # and update session state accordingly
+        st.session_state['resources_loaded'] = True
+        st.session_state['activities'] = "Loaded Activities"
+        st.session_state['slides'] = "Loaded Slides"
+        st.session_state['transcripts'] = "Loaded Transcripts"
+
 def find_relevant_document(text_response, vector_store):
     # Use the same OpenAIEmbeddings instance from the vector store
     embeddings = vector_store.embeddings
@@ -132,47 +144,59 @@ def find_relevant_document(text_response, vector_store):
         return None
 
 def main():
-    # Title and header for Streamlit app
-    st.title('Chat with your AI bootcamp!')
-    st.header("Ask about an topic from class 💬")
+    st.title('Ask Anthony: Chat with your AI Bootcamp Instructor!')
+    st.header("Ask about any topic from class 💬👨🏽‍🏫👩🏼‍🏫💻🧑🏾‍💻")
 
-    # Get vector store
-    vector_store = get_vector_store()
+    # Load resources if not already loaded
+    load_resources()
 
-    # Create crc llm
-    crc = create_crc_llm(vector_store)
+    # Retrieve or initialize the Conversational Retrieval Chain (CRC) model
+    if 'crc' not in st.session_state:
+        st.session_state['crc'] = create_crc_llm(get_vector_store())
 
-    # Input field for question
-    question = st.text_input('Input your question')
+    # Initialize 'history' in session state if it doesn't exist
+    if 'history' not in st.session_state:
+        st.session_state['history'] = []
 
-    if question:
-        # Check if 'crc' exists in session state
-        if 'crc' in st.session_state:
-            crc = st.session_state.crc
-            
-            # Check if 'history' exists in session state
-            if 'history' not in st.session_state:
-                st.session_state['history'] = []
-                
-            # Run crc on user's question and chat history
-            crc_response = crc.run({'question': question,
-                                    'chat_history': st.session_state['history']})
-            
-            # Find the most relevant source document
-            relevant_document = find_relevant_document(crc_response, vector_store)
-            if relevant_document:
-                st.write("Most relevant source document:", relevant_document)
-            else:
-                st.write("No relevant source document found.")
-            
-            # combine crc response with source document name to pass to flair function
-            crc_with_source = relevant_document + crc_response
-            # Add flair to response
-            final_response = add_flair(crc_with_source)
-            
-            
-            # Display final response
-            st.write(final_response)
+    # Display chat history
+    st.subheader("Session History")
+    if st.session_state['history']:
+        for idx, (message, response) in enumerate(reversed(st.session_state['history']), 1):
+            with st.expander(f"Conversation {idx}", expanded=True):
+                st.markdown("**You:**")
+                st.write(message)
+                st.markdown("**Anthony:**")
+                st.write(response)
+
+    # Manage clearing of the input field
+    clear_input = st.session_state.get('clear_input', False)
+    if clear_input:
+        user_message = st.text_input('You:', key='user_input_text', value='', placeholder='Type your message here...')
+        st.session_state.clear_input = False  # Reset the clear input flag
+    else:
+        user_message = st.text_input('You:', key='user_input_text', placeholder='Type your message here...')
+    st.caption("Press Enter to submit your question. Remember to clear the text box to submit a new questions.")
+
+    # Check if there is a new message
+    if user_message:
+        if 'last_message' not in st.session_state or user_message != st.session_state.last_message:
+            # Process the user's message with a spinner for better UX during loading
+            with st.spinner("Thinking..."):
+                # Generate a response using the CRC model
+                crc_response = st.session_state['crc'].run({'question': user_message, 'chat_history': st.session_state['history']})
+                final_response = add_flair(crc_response)
+
+                # Append the new conversation to the history
+                st.session_state['history'].append((user_message, final_response))
+
+                # Save the last processed message to prevent reprocessing on refresh
+                st.session_state.last_message = user_message
+
+                # Set flag to clear the input field next run
+                st.session_state.clear_input = True
+
+                # Rerun to reflect changes and clear the input field
+                st.experimental_rerun()
 
 if __name__ == '__main__':
     main()
