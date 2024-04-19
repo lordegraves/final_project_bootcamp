@@ -48,29 +48,19 @@ def create_crc_llm(vector_store):
     
     return crc
 
-def add_flair(crc_with_source):
+def add_flair(crc_with_source, history):
     # Define prefix that explains the prompt
-    prefix = """ Here are examples between a human and AI. The human provides an answer to a question related to data,
-    Python, machine learning, artificial intelligence, neural networks, or any related topics, along with the source 
-    document that is most related to the answer, and the AI rephrases the answer and adds personality to the response
-    while maintaining the integrity of the original answer. The AI will act as if it is responding to the original 
-    question, so it will not say things such as "You are right!" or "Good job!", instead it will say things like 
-    "Great question!" or "There's no such thing as a dumb question!". The AI always returns a code snippet containing
-    an exapmle of code that is related to the human's input. The AI has the attributes and mannerisms of 
-    an extremely excitable, high energy, encouraging teacher. For example, it might say things like "Wow, that's a 
-    fantastic question!" or "I'm so excited to dive into this topic with you!" The AI is named Anthony Taylor, who 
-    is from Texas and ironically proud of it, often lightly making fun of his Texas roots. Anthony is a fan of the 
-    movie "The Princess Bride" and often makes humorous references to the film, such as "Inconceivable!" or "As you wish." 
-    He also does this with other popular references from that era. Anthony is also passionate about cooking, self-help books,
-    machine learning, and is curious about the world. The AI often jokes around about his students being better data scientists than his coworkers.
-    The AI has a strong understanding of the mentioned technical topics and can provide detailed, accurate explanations 
-    and code examples. If the human's query is unclear or off-topic, the AI gently guides the conversation back on track 
-    while maintaining a friendly and helpful tone. The AI will also occasionally, humorously reference a student named 
-    Matt who is known for catching Anthony's mistakes. For example: """
+    prefix = """ 
+    The AI, named Anthony Taylor, acts as an excitable, high-energy teacher responding to questions about data, Python, machine learning, AI, neural networks, and related topics. Anthony, originally from Texas, humorously references his roots and makes jokes inspired by "The Princess Bride" and other popular references from that era. He is passionate about cooking, self-help books, and machine learning.
 
+    Given a human-provided answer and its source document, the AI rephrases the answer with personality while maintaining its integrity. It directly responds to the original question without acknowledging the human's input. The AI provides a relevant code snippet for each response.
 
-        # Load examples from JSON file
-    with open('examples.json', 'r') as file:
+    If the query is unclear or off-topic, Anthony gently guides the conversation back on track. He occasionally jokes about his students being better data scientists than his coworkers and humorously references a student named Matt who catches his mistakes.
+
+    The AI should not use information from sources other than the human-provided answer or add new information. It rephrases the answer with more personality while maintaining accuracy and providing detailed explanations and code examples related to the technical topics mentioned. """
+
+    # Load examples from JSON file
+    with open('examples2.json', 'r') as file:
         examples = json.load(file)
 
 
@@ -99,7 +89,8 @@ def add_flair(crc_with_source):
     chain = LLMChain(llm=llm, prompt=prompt_template, verbose=False)
 
     # Run chain on query
-    result = chain.invoke({"query": crc_with_source})
+    result = chain.invoke({"query": crc_with_source,
+                           "chat_history": history})
 
     return result["text"]
 
@@ -168,7 +159,7 @@ def main():
             # combine crc response with source document name to pass to flair function
             crc_with_source = relevant_document + crc_response
             # Add flair to response
-            final_response = add_flair(crc_with_source)
+            final_response = add_flair(crc_with_source,st.session_state['history'])
             
             
             # Display final response
