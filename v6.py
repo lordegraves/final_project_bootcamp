@@ -101,7 +101,8 @@ def add_flair(crc_with_source, history):
     chain = LLMChain(llm=llm, prompt=prompt_template, verbose=False)
 
     # Run chain on query
-    result = chain.invoke({"query": crc_with_source})
+    result = chain.invoke({"query": crc_with_source,
+                           "chat_history": history})
 
     return result["text"]
 
