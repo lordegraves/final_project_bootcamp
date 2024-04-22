@@ -5,7 +5,7 @@ from langchain_community.vectorstores import Qdrant
 from langchain_core.prompts import PromptTemplate, FewShotPromptTemplate
 from langchain_openai import OpenAIEmbeddings
 import qdrant_client
-import time
+import json
 import numpy as np
 
 # Set up Streamlit page configuration
@@ -48,52 +48,30 @@ def create_crc_llm(vector_store):
     
     return crc
 
-def add_flair(crc_response):
+def add_flair(crc_with_source, history):
     # Define prefix that explains the prompt
-    prefix = """
-    Here are examples between a human and AI. The human provides an answer to a question related
-    to data, python, machine learning, artificial intelligence, neural networks,
-    or any related topics, and the AI rephrases the answer and adds personality to the response
-    while maintaining the integrity of the original answer. The AI has the attributes and mannerisms 
-    of an extremely excitable, high energy, encouraging teacher. The AI is named Anthony Taylor who
-    is from Texas and proud of it but not obsessed about it. The AI is also known to add a couple of jokes but not go too far, it is a fan of the movie princess bride. The AI is alsso a fan of cooking, self help books, machine leaning, an curious about the world. Whenever possible, the AI will include the name of the context 
-    file that is most relevant to the human's initial answer. If the human provides a code related statement,
-    the AI will provide an example code snippet to help illustrate the answer.
-    For example:
-    """
+    prefix = """ Here are examples between a human and AI. The human provides an answer to a question related to data,
+    Python, machine learning, artificial intelligence, neural networks, or any related topics, along with the source 
+    document that is most related to the answer, and the AI rephrases the answer and adds personality to the response
+    while maintaining the integrity of the original answer. The AI will act as if it is responding to the original 
+    question, so it will not say things such as "You are right!" or "Good job!", instead it will say things like 
+    "Great question!" or "There's no such thing as a dumb question!". The AI always returns a code snippet containing
+    an exapmle of code that is related to the human's input. The AI has the attributes and mannerisms of 
+    an extremely excitable, high energy, encouraging teacher. For example, it might say things like "Wow, that's a 
+    fantastic question!" or "I'm so excited to dive into this topic with you!" The AI is named Anthony Taylor, who 
+    is from Texas and ironically proud of it, often lightly making fun of his Texas roots. Anthony is a fan of the 
+    movie "The Princess Bride" and often makes humorous references to the film, such as "Inconceivable!" or "As you wish." 
+    He also does this with other popular references from that era. Anthony is also passionate about cooking, self-help books,
+    machine learning, and is curious about the world. The AI often jokes around about his students being better data scientists than his coworkers.
+    The AI has a strong understanding of the mentioned technical topics and can provide detailed, accurate explanations 
+    and code examples. If the human's query is unclear or off-topic, the AI gently guides the conversation back on track 
+    while maintaining a friendly and helpful tone. The AI will also occasionally, humorously reference a student named 
+    Matt who is known for catching Anthony's mistakes. For example: """
 
     # Define examples for few-shot learning
-    examples = [
-        {"query": """
-         In Python, with list comprehension, you can write a line of code to make a list with no trouble.
-         It can create lists based on items from before, making your code a lot more swift than before.
-         With list comprehension, you can apply conditions and do operations to fill up a new list, a practice you will surely adore.
-         """,
-         "answer": """
-         Great question! We learned about list comprehension in week three of our class.
-         Boy, that was a long time ago! It's hard to remember everything we've learned!
-         So let's go over list comprehension. List comprehension is used in Python when
-         you want to create a new list by applying an expression to each element in an existing list.
-         It provides a concise way to generate lists without having to use traditional for loops.
-         An example of list comprehension is:
-         
-                # Create a list of squared numbers from 0 to 9 using list comprehension
-                squared_numbers = [x**2 for x in range(10)]
-                print(squared_numbers)
-          
-          This code snippet creates a list called squared_numbers that contains the squares of numbers
-          from 0 to 9 using list comprehension. Does this answer your question? That was such a great question.
-          At the company where I work, like 8 out of 10 data guys that work for me don't know list comprehension.
-          Feel free to ask a follow up or a new question!
-         """},
-        {"query": "frog",
-         "answer": "A dog hops a log in the bog."},
-        {"query": "ten", "answer": "Ben sent ten hens to the glen."},
-         {"query": "How can machine learning be used to improve predictive analytics in healthcare?", 
-         "answer": "Machine learning significantly impacts healthcare by enhancing predictive analytics. It allows us to analyze patterns in extensive health data to predict outcomes more accurately. For real-world applications and case studies, refer to Lesson 8, Slide 20."},
-        {"query": "Can you explain how the Hugging Face library is used for natural language processing tasks?", 
-         "answer": "Absolutely, Hugging Face is crucial for NLP, offering a suite of pre-trained models for tasks like sentiment analysis and text generation. For a hands-on tutorial, see Lesson 12, where we explore its capabilities through coding exercises."},
-    ]
+    # Load examples from JSON file
+    with open('examples2.json', 'r') as file:
+        examples = json.load(file)
 
     # Define format for examples
     example_format = """Human: {query}\nAI: {answer}"""
@@ -120,19 +98,20 @@ def add_flair(crc_response):
     chain = LLMChain(llm=llm, prompt=prompt_template, verbose=False)
 
     # Run chain on query
-    result = chain.invoke({"query": crc_response})
+    result = chain.invoke({"query": crc_with_source,
+                           "chat_history": history})
 
     return result["text"]
 
-# Define function to load activities, slides, and transcripts
-def load_resources():
-    if 'resources_loaded' not in st.session_state:
-        # Load your activities, slides, and transcripts here
-        # and update session state accordingly
-        st.session_state['resources_loaded'] = True
-        st.session_state['activities'] = "Loaded Activities"
-        st.session_state['slides'] = "Loaded Slides"
-        st.session_state['transcripts'] = "Loaded Transcripts"
+# # Define function to load activities, slides, and transcripts
+# def load_resources():
+#     if 'resources_loaded' not in st.session_state:
+#         # Load your activities, slides, and transcripts here
+#         # and update session state accordingly
+#         st.session_state['resources_loaded'] = True
+#         st.session_state['activities'] = "Loaded Activities"
+#         st.session_state['slides'] = "Loaded Slides"
+#         st.session_state['transcripts'] = "Loaded Transcripts"
 
 
 def find_relevant_document(text_response, vector_store):
@@ -168,11 +147,11 @@ def main():
     st.header("Ask about any topic from class 💬👨🏽‍🏫👩🏼‍🏫💻🧑🏾‍💻")
 
     # Load resources if not already loaded
-    load_resources()
+    vector_store = get_vector_store()
 
     # Retrieve or initialize the Conversational Retrieval Chain (CRC) model
     if 'crc' not in st.session_state:
-        st.session_state['crc'] = create_crc_llm(get_vector_store())
+        st.session_state['crc'] = create_crc_llm(vector_store)
 
     # Initialize 'history' in session state if it doesn't exist
     if 'history' not in st.session_state:
@@ -204,7 +183,15 @@ def main():
             with st.spinner("Thinking..."):
                 # Generate a response using the CRC model
                 crc_response = st.session_state['crc'].run({'question': user_message, 'chat_history': st.session_state['history']})
-                final_response = add_flair(crc_response)
+                # Find the most relevant source document
+                relevant_document = find_relevant_document(crc_response, vector_store)
+                if relevant_document:
+                    st.write("Most relevant source document:", relevant_document)
+                else:
+                    st.write("No relevant source document found.")
+                crc_with_source = relevant_document + crc_response
+            # Add flair to response
+                final_response = add_flair(crc_with_source,st.session_state['history'])
 
                 # Append the new conversation to the history
                 st.session_state['history'].append((user_message, final_response))

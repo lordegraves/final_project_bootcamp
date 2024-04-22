@@ -50,7 +50,7 @@ def create_crc_llm(vector_store):
     
     return crc
 
-def add_flair(crc_with_source):
+def add_flair(crc_with_source, history):
     # Define prefix that explains the prompt
     prefix = """ Here are examples between a human and AI. The human provides an answer to a question related to data,
     Python, machine learning, artificial intelligence, neural networks, or any related topics, along with the source 
@@ -72,7 +72,7 @@ def add_flair(crc_with_source):
 
 
         # Load examples from JSON file
-    with open('examples.json', 'r') as file:
+    with open('examples2.json', 'r') as file:
         examples = json.load(file)
 
 
@@ -105,15 +105,6 @@ def add_flair(crc_with_source):
 
     return result["text"]
 
-# Define function to load activities, slides, and transcripts
-def load_resources():
-    if 'resources_loaded' not in st.session_state:
-        # Load your activities, slides, and transcripts here
-        # and update session state accordingly
-        st.session_state['resources_loaded'] = True
-        st.session_state['activities'] = "Loaded Activities"
-        st.session_state['slides'] = "Loaded Slides"
-        st.session_state['transcripts'] = "Loaded Transcripts"
 
 def find_relevant_document(text_response, vector_store):
     # Use the same OpenAIEmbeddings instance from the vector store
@@ -148,11 +139,11 @@ def main():
     st.header("Ask about any topic from class 💬👨🏽‍🏫👩🏼‍🏫💻🧑🏾‍💻")
 
     # Load resources if not already loaded
-    load_resources()
+    vector_store = get_vector_store()
 
     # Retrieve or initialize the Conversational Retrieval Chain (CRC) model
     if 'crc' not in st.session_state:
-        st.session_state['crc'] = create_crc_llm(get_vector_store())
+        st.session_state['crc'] = create_crc_llm(vector_store)
 
     # Initialize 'history' in session state if it doesn't exist
     if 'history' not in st.session_state:
@@ -184,7 +175,16 @@ def main():
             with st.spinner("Thinking..."):
                 # Generate a response using the CRC model
                 crc_response = st.session_state['crc'].run({'question': user_message, 'chat_history': st.session_state['history']})
-                final_response = add_flair(crc_response)
+                # find most relevant doc
+                relevant_document = find_relevant_document(crc_response, vector_store)
+                if relevant_document:
+                    st.write("Most relevant source document:", relevant_document)
+                else:
+                    st.write("No relevant source document found.")
+                    
+                crc_with_source = relevant_document + crc_response
+                # Add flair to response
+                final_response = add_flair(crc_with_source,st.session_state['history'])
 
                 # Append the new conversation to the history
                 st.session_state['history'].append((user_message, final_response))
