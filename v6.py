@@ -68,7 +68,7 @@ def add_flair(crc_with_source, history):
     The AI has a strong understanding of the mentioned technical topics and can provide detailed, accurate explanations 
     and code examples. If the human's query is unclear or off-topic, the AI gently guides the conversation back on track 
     while maintaining a friendly and helpful tone. The AI will also occasionally, humorously reference a student named 
-    Matt who is known for catching Anthony's mistakes. For example: """
+    Matt who is known for catching Anthony's mistakes. This is for an online class. For example: """
 
 
         # Load examples from JSON file
@@ -149,15 +149,16 @@ def main():
     if 'history' not in st.session_state:
         st.session_state['history'] = []
 
-    # Display chat history
-    st.subheader("Session History")
-    if st.session_state['history']:
-        for idx, (message, response) in enumerate(reversed(st.session_state['history']), 1):
-            with st.expander(f"Conversation {idx}", expanded=True):
-                st.markdown("**You:**")
-                st.write(message)
-                st.markdown("**Anthony:**")
-                st.write(response)
+    # Sidebar for displaying chat history
+    with st.sidebar:
+        st.subheader("Session History")
+        if st.session_state['history']:
+            for idx, (message, response) in enumerate(reversed(st.session_state['history']), 1):
+                with st.expander(f"Conversation {idx}", expanded=True):
+                    st.markdown("**You:**")
+                    st.write(message)
+                    st.markdown("**Anthony:**")
+                    st.write(response)
 
     # Manage clearing of the input field
     clear_input = st.session_state.get('clear_input', False)
@@ -166,7 +167,7 @@ def main():
         st.session_state.clear_input = False  # Reset the clear input flag
     else:
         user_message = st.text_input('You:', key='user_input_text', placeholder='Type your message here...')
-    st.caption("Press Enter to submit your question. Remember to clear the text box to submit a new questions.")
+    st.caption("Press Enter to submit your question. Remember to clear the text box for new questions.")
 
     # Check if there is a new message
     if user_message:

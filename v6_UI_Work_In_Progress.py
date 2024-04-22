@@ -157,15 +157,16 @@ def main():
     if 'history' not in st.session_state:
         st.session_state['history'] = []
 
-    # Display chat history
-    st.subheader("Session History")
-    if st.session_state['history']:
-        for idx, (message, response) in enumerate(reversed(st.session_state['history']), 1):
-            with st.expander(f"Conversation {idx}", expanded=True):
-                st.markdown("**You:**")
-                st.write(message)
-                st.markdown("**Anthony:**")
-                st.write(response)
+    # Sidebar for displaying chat history
+    with st.sidebar:
+        st.subheader("Session History")
+        if st.session_state['history']:
+            for idx, (message, response) in enumerate(reversed(st.session_state['history']), 1):
+                with st.expander(f"Conversation {idx}", expanded=True):
+                    st.markdown("**You:**")
+                    st.write(message)
+                    st.markdown("**Anthony:**")
+                    st.write(response)
 
     # Manage clearing of the input field
     clear_input = st.session_state.get('clear_input', False)
@@ -207,3 +208,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
