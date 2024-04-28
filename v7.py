@@ -8,7 +8,6 @@ import qdrant_client
 import json
 import numpy as np
 
-# Set up Streamlit page configuration
 st.set_page_config(page_title=None,
                    page_icon=None,
                    layout="centered",
@@ -16,36 +15,16 @@ st.set_page_config(page_title=None,
                    menu_items=None)
 
 def get_vector_store():
-    # Create a client to connect to Qdrant server
-    client = qdrant_client.QdrantClient(st.secrets["QDRANT_HOST"],
-                                        api_key=st.secrets["QDRANT_API_KEY"])
-    
-    # Initialize embeddings for vector store
+    client = qdrant_client.QdrantClient(st.secrets["QDRANT_HOST"], api_key=st.secrets["QDRANT_API_KEY"])
     embeddings = OpenAIEmbeddings()
-    
-    # Create a vector store with Qdrant and embeddings
-    vector_store = Qdrant(client,
-                          collection_name=st.secrets["QDRANT_COLLECTION_NAME"],
-                          embeddings=embeddings)
-    
+    vector_store = Qdrant(client, collection_name=st.secrets["QDRANT_COLLECTION_NAME"], embeddings=embeddings)
     return vector_store
 
 def create_crc_llm(vector_store):
-    # Create an instance of ChatOpenAI model
     llm = ChatOpenAI(model='gpt-3.5-turbo', temperature=1)
-    
-    # Create retriever from vector store
     retriever = vector_store.as_retriever()
-    
-    # Create CRC chain using llm and retriever
     crc = ConversationalRetrievalChain.from_llm(llm, retriever)
-    
-    # Store crc in session state
     st.session_state.crc = crc
-    
-    # Show success message when activities are loaded
-    st.success('Activities, slides, and transcripts are loaded')
-    
     return crc
 
 def add_flair(crc_with_source, history):
@@ -67,23 +46,12 @@ def add_flair(crc_with_source, history):
     and code examples. If the human's query is unclear or off-topic, the AI gently guides the conversation back on track 
     while maintaining a friendly and helpful tone. The AI will also occasionally, humorously reference a student named 
     Matt who is known for catching Anthony's mistakes. This is for an online class. For example: """
-
-
-        # Load examples from JSON file
+    # load examples
     with open('examples2.json', 'r') as file:
         examples = json.load(file)
-
-
-    # Define format for examples
     example_format = """Human: {query}\nAI: {answer}"""
-
-    # Create template for examples
-    example_template = PromptTemplate(input_variables=["query", "answer"],
-                                      template=example_format)
-
-    # Define suffix for query
+    example_template = PromptTemplate(input_variables=["query", "answer"], template=example_format)
     suffix = """\n\nHuman: {query}\nAI:"""
-
     # Construct few-shot prompt template
     prompt_template = FewShotPromptTemplate(examples=examples,
                                             example_prompt=example_template,
@@ -91,47 +59,63 @@ def add_flair(crc_with_source, history):
                                             prefix=prefix,
                                             suffix=suffix,
                                             example_separator="\n")
-
     # Create new llm instance
     llm = ChatOpenAI(model='gpt-3.5-turbo', temperature=1)
-
     # Create chain with llm and prompt template
     chain = LLMChain(llm=llm, prompt=prompt_template, verbose=False)
-
     # Run chain on query
-    result = chain.invoke({"query": crc_with_source,
-                           "chat_history": history})
-
+    result = chain.invoke({"query": crc_with_source, "chat_history": history})
     return result["text"]
 
 def find_relevant_document(text_response, vector_store):
-    # Use the same OpenAIEmbeddings instance from the vector store
     embeddings = vector_store.embeddings
-
     # Encode the text response using OpenAIEmbeddings
     query_vector = embeddings.embed_query(text_response)
-
     # Perform a similarity search in Qdrant
     search_result = vector_store.client.search(
         collection_name=vector_store.collection_name,
         query_vector=query_vector,
         limit=1  # Return only the most relevant document
     )
-
     if search_result:
-        # Extract the metadata from the search result
         metadata = search_result[0].payload.get("metadata", {})
-        
-        # Extract the document name from the metadata
         document_name = metadata.get("name")
-        
         if document_name:
             return document_name
         else:
             return "Document name not found in metadata."
     else:
         return None
-    
+
+def process_user_message(user_message):
+    with st.spinner("Thinking..."):
+        crc_response = st.session_state.crc.run({'question': user_message, 'chat_history': st.session_state.history})
+        relevant_document = find_relevant_document(crc_response, st.session_state.vector_store)
+        if relevant_document:
+            crc_with_source = f"{relevant_document} {crc_response}"
+            st.write("Most relevant source document:", relevant_document)
+        else:
+            crc_with_source = crc_response
+            st.write("No relevant source document found.")
+        final_response = add_flair(crc_with_source, st.session_state.history)
+        st.session_state.history.append((user_message, final_response))  # Append to history in session state
+
+def display_last_response():
+    if st.session_state.history:
+        last_message, last_response = st.session_state.history[-1]
+        st.markdown("**Anthony:**")
+        st.write(last_response)
+
+def display_history():
+    with st.sidebar:
+        st.subheader("Session History")
+        for idx, (message, response) in enumerate(reversed(st.session_state.history)):
+            with st.expander(f"Conversation {idx + 1}"):
+                st.markdown("**You:**")
+                st.write(message)
+                st.markdown("**Anthony:**")
+                st.write(response)
+
 def main():
     st.title('Ask Anthony: Chat with your AI Bootcamp Instructor!')
     st.header("Ask about any topic from class 💬👨🏽‍🏫👩🏼‍🏫💻🧑🏾‍💻")
@@ -172,37 +156,6 @@ def main():
 
     # Display the entire conversation history in the sidebar
     display_history()
-
-def process_user_message(user_message):
-    with st.spinner("Thinking..."):
-        crc_response = st.session_state.crc.run({'question': user_message, 'chat_history': st.session_state.history})
-        relevant_document = find_relevant_document(crc_response, st.session_state.vector_store)
-
-        if relevant_document:
-            crc_with_source = f"{relevant_document} {crc_response}"
-            st.write("Most relevant source document:", relevant_document)
-        else:
-            crc_with_source = crc_response
-            st.write("No relevant source document found.")
-
-        final_response = add_flair(crc_with_source, st.session_state.history)
-        st.session_state.history.append((user_message, final_response))  # Append to history in session state
-
-def display_last_response():
-    if st.session_state.history:
-        last_message, last_response = st.session_state.history[-1]
-        st.markdown("**Anthony's last response:**")
-        st.write(last_response)
-
-def display_history():
-    with st.sidebar:
-        st.subheader("Session History")
-        for idx, (message, response) in enumerate(reversed(st.session_state.history)):
-            with st.expander(f"Conversation {idx + 1}"):
-                st.markdown("**You:**")
-                st.write(message)
-                st.markdown("**Anthony:**")
-                st.write(response)
 
 if __name__ == '__main__':
     main()
